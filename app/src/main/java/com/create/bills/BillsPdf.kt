@@ -7,22 +7,26 @@ import android.graphics.pdf.PdfDocument
 import android.widget.Toast
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.ceil
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.math.ceil
 
 fun generateInvoicePdf(
     context: Context,
-    items: List<InvoiceItem>,
-    cgst: Double,
-    sgst: Double,
+    items: List<DataClasses>,
     metadataMiddle: List<Pair<String, String>>,
-    metadataRight: List<Pair<String, String>>
+    metadataRight: List<Pair<String, String>>,
+    isIGST: Boolean,
+    companyInfo: CompanyInfo,
+    buyerInfo: BuyerInfo
 ) {
     val pdfDocument = PdfDocument()
     val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4 size
     val page = pdfDocument.startPage(pageInfo)
     val canvas = page.canvas
+    var igst = 0.0
+    var cgst = 0.0
+    var sgst = 0.0
 
     val paint = Paint().apply {
         color = Color.BLACK
@@ -32,15 +36,18 @@ fun generateInvoicePdf(
 
     val textPaint = Paint().apply {
         color = Color.BLACK
-        textSize = 8f
+        textSize = 9f
         style = Paint.Style.FILL
     }
 
     val boldTextPaint = Paint().apply {
         color = Color.BLACK
-        textSize = 8f
+        textSize = 9f
         style = Paint.Style.FILL
-        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        typeface = android.graphics.Typeface.create(
+            android.graphics.Typeface.DEFAULT,
+            android.graphics.Typeface.BOLD
+        )
     }
 
 
@@ -67,18 +74,28 @@ fun generateInvoicePdf(
     val middleStartX = startX + leftWidth
     val rightStartX = middleStartX + middleWidth
 
-// Vertical lines to separate 3 parts
+    // Vertical lines to separate 3 parts
     canvas.drawLine(middleStartX, currentY, middleStartX, currentY + headerHeight, paint)
     canvas.drawLine(rightStartX, currentY, rightStartX, currentY + headerHeight, paint)
 
-// Left Section (Company Info)
-    canvas.drawText("M/S ENTERPRISES", leftStartX + 10f, currentY + 20f, boldTextPaint)
-    canvas.drawText("House No: ...", leftStartX + 10f, currentY + 30f, textPaint)
-    canvas.drawText("GSTIN/UIN: 27ABCDE1234F1Z5", leftStartX + 10f, currentY + 40f, textPaint)
-    canvas.drawText("State Name: Maharashtra, Code: 27", leftStartX + 10f, currentY + 50f, textPaint)
-    canvas.drawText("Code: 27", leftStartX + 10f, currentY + 60f, textPaint)
+    // Left Section (Company Info)
+    canvas.drawText("${companyInfo.companyName}", leftStartX + 10f, currentY + 20f, boldTextPaint)
+    canvas.drawText("${companyInfo.addressLine1}", leftStartX + 10f, currentY + 30f, textPaint)
+    canvas.drawText("${companyInfo.addressLine2}", leftStartX + 10f, currentY + 40f, textPaint)
+    canvas.drawText(
+        "GSTIN/UIN: ${companyInfo.gstin}",
+        leftStartX + 10f,
+        currentY + 50f,
+        textPaint
+    )
+    canvas.drawText(
+        "State Name: ${companyInfo.state}, Code: ${companyInfo.code}",
+        leftStartX + 10f,
+        currentY + 60f,
+        textPaint
+    )
 
-// Divider between company and buyer info
+    // Divider between company and buyer info
     canvas.drawLine(
         leftStartX,
         currentY + 70f,
@@ -86,25 +103,31 @@ fun generateInvoicePdf(
         currentY + 70f,
         paint
     )
-// Left Section ( Info)
-    canvas.drawText("BILL TO:", leftStartX + 10f, currentY + 90f, textPaint)
-    canvas.drawText("HOLY FAITH INTERNATIONAL SCHOOL", leftStartX + 10f, currentY + 100f, boldTextPaint)
-    canvas.drawText("Address Line 1", leftStartX + 10f, currentY + 110f, textPaint)
-    canvas.drawText("GSTIN/UIN: 27ABCDE1234F1Z5", leftStartX + 10f, currentY + 120f, textPaint)
-    canvas.drawText("State Name: Maharashtra, Code: 27", leftStartX + 10f, currentY + 130f, textPaint)
-    canvas.drawText("Place of Supply: Maharashtra", leftStartX + 10f, currentY + 140f, textPaint)
+    // Left Section ( Info)
+    canvas.drawText("Buyer(BILL TO):", leftStartX + 10f, currentY + 90f, textPaint)
+    canvas.drawText("${buyerInfo.buyerName}", leftStartX + 10f, currentY + 100f, boldTextPaint)
+    canvas.drawText("${buyerInfo.addressLine1}", leftStartX + 10f, currentY + 110f, textPaint)
+    canvas.drawText("${buyerInfo.addressLine2}", leftStartX + 10f, currentY + 120f, textPaint)
+    canvas.drawText("GSTIN/UIN: ${buyerInfo.gstin}", leftStartX + 10f, currentY + 130f, textPaint)
+    canvas.drawText(
+        "State Name: ${buyerInfo.state}, Code: ${buyerInfo.code}",
+        leftStartX + 10f,
+        currentY + 140f,
+        textPaint
+    )
+    canvas.drawText(
+        "Place of Supply: ${buyerInfo.placeOfSupply}",
+        leftStartX + 10f,
+        currentY + 150f,
+        textPaint
+    )
 
 
-// Metadata split into middle and right sections
-    val labelWidth = 60f
-    val middleValueStartX = middleStartX + labelWidth + 5f
-    val rightValueStartX = rightStartX + labelWidth + 5f
-    val lineHeight = 13f
-
+    // Metadata split into middle and right sections
     var lineYMiddle = currentY + 15f
     var lineYRight = currentY + 15f
 
-// Draw Middle Metadata (Value below label)
+    // Draw Middle Metadata (Value below label)
     for ((label, value) in metadataMiddle) {
         canvas.drawText(label, middleStartX + 5f, lineYMiddle, textPaint)
         canvas.drawText(value, middleStartX + 5f, lineYMiddle + 10f, textPaint)
@@ -118,7 +141,7 @@ fun generateInvoicePdf(
         lineYMiddle += 25f
     }
 
-// Draw Right Metadata (Value below label)
+    // Draw Right Metadata (Value below label)
     for ((label, value) in metadataRight) {
         canvas.drawText(label, rightStartX + 5f, lineYRight, textPaint)
         canvas.drawText(value, rightStartX + 5f, lineYRight + 10f, textPaint)
@@ -146,30 +169,31 @@ fun generateInvoicePdf(
         columnsX[i + 1] = columnsX[i] + columnWidths[i]
     }
 
-// Header Row
-    val headerTitles = listOf("Sr", "Description", "HSN", "Qty", "Rate", "Per", "Amount")
+    // Header Row
+    val headerTitles =
+        listOf("SI No", "Description of Goods", "HSN/SAC", "Quantity", "Rate", "per", "Amount")
     for (i in headerTitles.indices) {
         canvas.drawText(headerTitles[i], columnsX[i] + 5f, currentY + 15f, textPaint)
     }
 
-// Line between header and item rows
+    // Line between header and item rows
     canvas.drawLine(columnsX[0], currentY + 20f, columnsX.last(), currentY + 20f, paint)
 
-// Determine minimum rows and calculate table height
+    // Determine minimum rows and calculate table height
     val minRowCount = 21
     val actualRowCount = items.size
     val rowHeight = 20f
     val totalRowCount = maxOf(minRowCount, actualRowCount)
     val tableContentHeight = 35f + rowHeight * totalRowCount  // 35f includes header padding
 
-// Header borders
+    // Header borders
     for (x in columnsX) {
-        canvas.drawLine(x, currentY, x, currentY + tableContentHeight+14f, paint)
+        canvas.drawLine(x, currentY, x, currentY + tableContentHeight + 14f, paint)
     }
     canvas.drawLine(columnsX[0], currentY, columnsX.last(), currentY, paint) // top line
 
-// Draw rows
-    var yOffset = currentY + 35f
+    // Draw rows
+    var yOffset = currentY + if (isIGST) 37f else 35f
     var totalAmount = 0.00
     var qtyTotal = 0.00
     var serialNumber = 1
@@ -177,7 +201,7 @@ fun generateInvoicePdf(
         canvas.drawText(serialNumber.toString(), columnsX[0] + 5f, yOffset, textPaint)
         canvas.drawText(item.description, columnsX[1] + 5f, yOffset, textPaint)
         canvas.drawText(item.hsn, columnsX[2] + 5f, yOffset, textPaint)
-        canvas.drawText(item.qty.toString(), columnsX[3] + 5f, yOffset, textPaint)
+        canvas.drawText(item.qty.toString() + " K.G", columnsX[3] + 5f, yOffset, textPaint)
         canvas.drawText(String.format("%.2f", item.rate), columnsX[4] + 5f, yOffset, textPaint)
         canvas.drawText(item.per, columnsX[5] + 5f, yOffset, textPaint)
         canvas.drawText(String.format("%.2f", item.amount), columnsX[6] + 5f, yOffset, textPaint)
@@ -187,7 +211,7 @@ fun generateInvoicePdf(
         serialNumber++
     }
 
-// Draw empty rows if actual < minimum
+    // Draw empty rows if actual < minimum
     repeat(minRowCount - actualRowCount) {
         for (i in 0 until columnsX.size - 1) {
             canvas.drawText("", columnsX[i] + 5f, yOffset, textPaint)
@@ -195,57 +219,74 @@ fun generateInvoicePdf(
         yOffset += rowHeight
     }
 
-// Bottom border of table
+    // Bottom border of table
     canvas.drawLine(columnsX[0], yOffset - 10f, columnsX.last(), yOffset - 10f, paint)
 
+    //Calculate Tax
+    if (isIGST) {
+        igst = totalAmount * 0.18
+    } else {
+        cgst = totalAmount * 0.09
+        sgst = totalAmount * 0.09
+    }
+
+
     // Total Amount
-    var finalAmount = totalAmount + cgst + sgst
+    var finalAmount = totalAmount + cgst + sgst + igst
 
 
-// Move down a bit after last item row
+    // Move down a bit after last item row
     yOffset += 10f
 
-// Align under the last column (Amount column)
+    // Align under the last column (Amount column)
     val amountX = columnsX[6] + 5f
 
     // Total Row inside Table (Qty and Amount)
     canvas.drawText("Total", columnsX[0] + 5f, yOffset, boldTextPaint)
-    canvas.drawText(qtyTotal.toString(), columnsX[3] + 5f, yOffset, boldTextPaint)
+    canvas.drawText(qtyTotal.toString() + " K.G", columnsX[3] + 5f, yOffset, boldTextPaint)
     canvas.drawText("₹${String.format("%.2f", totalAmount)}", columnsX[6] + 5f, yOffset, boldTextPaint)
     canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
     yOffset += 15f
 
+    if (isIGST) {
+        // IGST
+        canvas.drawText("IGST", columnsX[0] + 5f, yOffset, textPaint)
+        canvas.drawText(" 18% ", columnsX[2] + 5f, yOffset, textPaint)
+        canvas.drawText("₹${String.format("%.2f", igst)}", amountX, yOffset, textPaint)
+        canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
+        yOffset += 15f
 
-// CGST
-    canvas.drawText("CGST", columnsX[0] + 5f, yOffset, textPaint)
-    canvas.drawText(" 9% ", columnsX[2] + 5f,yOffset, textPaint)
-    canvas.drawText("₹${String.format("%.2f", cgst)}", amountX, yOffset, textPaint)
-    canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
+    } else {
+        // CGST
+        canvas.drawText("CGST", columnsX[0] + 5f, yOffset, textPaint)
+        canvas.drawText(" 9% ", columnsX[2] + 5f, yOffset, textPaint)
+        canvas.drawText("₹${String.format("%.2f", cgst)}", amountX, yOffset, textPaint)
+        canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
+        yOffset += 15f
 
-    yOffset += 15f
+        // SGST
+        canvas.drawText("SGST", columnsX[0] + 5f, yOffset, textPaint)
+        canvas.drawText(" 9% ", columnsX[2] + 5f, yOffset, textPaint)
+        canvas.drawText("₹${String.format("%.2f", sgst)}", amountX, yOffset, textPaint)
+        canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
+        yOffset += 15f
+    }
 
-// SGST
-    canvas.drawText("SGST", columnsX[0] + 5f, yOffset, textPaint)
-    canvas.drawText(" 9% ", columnsX[2] + 5f,yOffset, textPaint)
-    canvas.drawText("₹${String.format("%.2f", sgst)}", amountX, yOffset, textPaint)
-    canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
-
-    yOffset += 15f
-
-//Round up amount
+    //Round up amount
     val needsRoundingUp = finalAmount != ceil(finalAmount)
-    if(needsRoundingUp){
-        val roundedUp = BigDecimal(finalAmount).setScale(0, RoundingMode.CEILING).setScale(2, RoundingMode.UNNECESSARY)
+    if (needsRoundingUp) {
+        val roundedUp = BigDecimal(finalAmount).setScale(0, RoundingMode.CEILING)
+            .setScale(2, RoundingMode.UNNECESSARY)
         val showRoundUpamount = roundedUp.toDouble() - finalAmount.toDouble()
         finalAmount = roundedUp.toDouble()
         canvas.drawText("Round Off", columnsX[0] + 5f, yOffset, textPaint)
-        canvas.drawText("₹${String.format("%.2f",showRoundUpamount )}", amountX, yOffset, textPaint)
+        canvas.drawText("₹${String.format("%.2f", showRoundUpamount)}", amountX, yOffset, textPaint)
         canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
         yOffset += 15f
     }
 
 
-// Total Amount (Bold)
+    // Total Amount (Bold)
     canvas.drawText("Total Amount:", columnsX[0] + 5f, yOffset, boldTextPaint)
     canvas.drawText("₹${String.format("%.2f", finalAmount)}", amountX, yOffset, boldTextPaint)
     canvas.drawLine(columnsX[0], yOffset + 3f, columnsX.last(), yOffset + 3f, paint)
@@ -255,42 +296,31 @@ fun generateInvoicePdf(
     canvas.drawText("Amount Chargeable (in words):", columnsX[0] + 5f, yOffset + 10f, textPaint)
     yOffset += 20f
     val amountInWords = convertNumberToWords(finalAmount.toLong())
-    canvas.drawText("INR "+amountInWords+" Only", columnsX[0] + 5f, yOffset, boldTextPaint)
+    canvas.drawText("INR $amountInWords Only", columnsX[0] + 5f, yOffset, boldTextPaint)
     yOffset += 15f
 
-    // Footer Section Boxes
-    val footerBoxTop = 770f
-    val footerBoxHeight = 40f
-    val footerBoxWidth = (565f - startX) / 2
+    // Full-width horizontal line (above footer section)
+    val footerLineY = 765f
+    canvas.drawLine(
+        startX,             // Start from left margin
+        footerLineY,
+        565f,               // End at full page width
+        footerLineY,
+        paint
+    )
 
-    val leftBoxStartX = startX
-    val rightBoxStartX = startX + footerBoxWidth
+    // "M/S ENTERPRISES" - Top-right aligned
+    val companyName = companyInfo.companyName
+    val enterpriseTextWidth = boldTextPaint.measureText(companyName)
+    val enterpriseX = 565f - enterpriseTextWidth - 10f
+    val enterpriseY = footerLineY + 12f
+    canvas.drawText(companyName, enterpriseX, enterpriseY, boldTextPaint)
 
-// Draw Left Footer Box
-    canvas.drawRect(leftBoxStartX, footerBoxTop, leftBoxStartX + footerBoxWidth, footerBoxTop + footerBoxHeight, paint)
-
-// Top-left "Customer's Signatory" in left box
-    val customerText = "Customer's Signatory"
-    val customerX = leftBoxStartX + 10f  // 10f padding from left
-    val customerY = footerBoxTop + 15f   // 15f padding from top
-    canvas.drawText(customerText, customerX, customerY, boldTextPaint)
-
-
-// Draw Right Footer Box
-    canvas.drawRect(rightBoxStartX, footerBoxTop, rightBoxStartX + footerBoxWidth, footerBoxTop + footerBoxHeight, paint)
-
-// Align "M/S ENTERPRISES" to top-right
-    val enterpriseText = "M/S ENTERPRISES"
-    val enterpriseTextWidth = boldTextPaint.measureText(enterpriseText)
-    val enterpriseX = rightBoxStartX + footerBoxWidth - enterpriseTextWidth - 10f
-    val enterpriseY = footerBoxTop + 15f
-    canvas.drawText(enterpriseText, enterpriseX, enterpriseY, boldTextPaint)
-
-// Align "Authorised Signatory" to bottom-right
+    // "Authorised Signatory" - Bottom-right aligned
     val authText = "Authorised Signatory"
     val authTextWidth = textPaint.measureText(authText)
-    val authX = rightBoxStartX + footerBoxWidth - authTextWidth - 10f
-    val authY = footerBoxTop + footerBoxHeight - 8f
+    val authX = 565f - authTextWidth - 10f
+    val authY = footerLineY + 40f
     canvas.drawText(authText, authX, authY, textPaint)
 
     pdfDocument.finishPage(page)

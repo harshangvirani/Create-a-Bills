@@ -2,6 +2,7 @@ package com.create.bills
 
 import android.Manifest
 import android.content.Intent
+import android.icu.lang.UCharacter.GraphemeClusterBreak.T
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -28,42 +29,86 @@ class MainActivity : AppCompatActivity() {
         } else {
             checkPermissions()
         }
+        val companyInfo = CompanyInfo(
+            companyName = "M/S ENTERPRISES",
+            addressLine1 = "House No:613,Shop NO:4,CHANDERLOK",
+            addressLine2 = "NEAR MANODALI ROAD,Delhi-110093",
+            gstin = "27ABCDE1234F1Z5",
+            state = "Maharashtra",
+            code = "07"
+        )
 
-        val invoiceno = "1232321rc1xx"
+        val buyerInfo = BuyerInfo(
+            buyerName = "HEMANT INTERNATIONAL",
+            addressLine1 = "Plot No:4599,GIDC,Phase-3",
+            addressLine2 = "Dared,Jamnagar-361004",
+            gstin = "24BACPN0912P1ZP",
+            state = "Gujarat",
+            code = "24",
+            placeOfSupply = "Gujarat"
+        )
+
+        val billInfo = BillInfo(
+            invoiceNo = "1232321rc1xx",
+            ewayBillNo = "odjow8451",
+            deliveryNote = "",
+            paymentTerms = "Online",
+            refeNo = "12",
+            refeDate = "12/12/12",
+            otherRefes = "",
+            buyersOrderNo = "REF123",
+            dated = "12/12/2013",
+            dispatchDoc = "DOC789",
+            deliveryNoteDate = "13/06/2025",
+            dispatchedThrough = "Jam Jupeter Logistics",
+            destination = "Jamnagar",
+            billOfLading = "dt.11-jun-25",
+            vehicleNo = "MH12AB1234"
+        )
+
         val items = listOf(
-            InvoiceItem(1, "BRASS SCRAP", "7404", 35, 91.14, "K.G", 3189.00),
-            InvoiceItem(2, "ALUMINIUM SCRAP", "7602", 10, 120.50, "K.G", 1205.00),
+            DataClasses(1, "BRASS SCRAP", "7404", 35, 91.14, "K.G", 3189.00),
+            DataClasses(2, "ALUMINIUM SCRAP", "7602", 10, 120.50, "K.G", 1205.00),
         )
 
         val metadataMiddle = listOf(
-            "Invoice No.:" to invoiceno,
-            "Delivery Note:" to "60",
-            "Reference No. & Date:" to "",
-            "Buyer's Order No.:" to "REF123",
-            "Dispatch Doc:" to "DOC789",
-            "Dispatched through" to "JAM JUPETER LOGISTICS",
-            "Bill of Lading/LR-RR No.:" to "dt.11-jun-25",
+            "Invoice No.:" to billInfo.invoiceNo,
+            "Delivery Note:" to (billInfo.deliveryNote?:""),
+            "Reference No. & Date:" to ((billInfo.refeNo+" "+billInfo.refeDate)?:""),
+            "Buyer's Order No.:" to (billInfo.buyersOrderNo?:""),
+            "Dispatch Doc:" to (billInfo.dispatchDoc?:""),
+            "Dispatched through" to (billInfo.dispatchedThrough?:""),
+            "Bill of Lading/LR-RR No.:" to (billInfo.billOfLading?:""),
         )
 
         val metadataRight = listOf(
-            "e-Way Bill No.:" to "PO-456",
-            "Payment Terms:" to "Online / Net 30",
-            "Other References:" to "",
-            "Dated:" to "13/06/2025",
-            "Delivery Note Date:" to "13/06/2025",
-            "Destination:" to "City XYZ",
-            "Vehicle No.:" to "MH12AB1234",
+            "e-Way Bill No.:" to (billInfo.ewayBillNo?:""),
+            "Payment Terms:" to (billInfo.paymentTerms?:""),
+            "Other References:" to (billInfo.otherRefes?:""),
+            "Dated:" to (billInfo.dated?:""),
+            "Delivery Note Date:" to (billInfo.deliveryNoteDate?:""),
+            "Destination:" to (billInfo.destination?:""),
+            "Vehicle No.:" to (billInfo.vehicleNo?:""),
         )
 
-        val totalAmount = items.sumOf { it.amount }
-        val cgst = totalAmount * 0.09
-        val sgst = totalAmount * 0.09
+        binding.cgstSgst.setOnClickListener {
+            generateInvoicePdf(
+                this,
+                items,
+                metadataMiddle,
+                metadataRight,
+                false,
+                companyInfo,
+                buyerInfo
 
-
-        generateInvoicePdf(
-            this, items, cgst, sgst, metadataMiddle,
-            metadataRight
-        )
+            )
+        }
+        binding.igst.setOnClickListener {
+            generateInvoicePdf(
+                this, items, metadataMiddle,
+                metadataRight, true, companyInfo, buyerInfo
+            )
+        }
     }
 
     private fun checkPermissions() {
